@@ -1,5 +1,6 @@
 import torch
 import math
+import pathlib
 import copy
 import genesis as gs
 from genesis.utils.geom import (
@@ -9,6 +10,17 @@ from genesis.utils.geom import (
     transform_quat_by_quat,
 )
 
+#finding path for urdf
+# 1. Get the path to the current script file (hover_env.py)
+script_path = pathlib.Path(__file__).resolve()
+
+# 2. Get the path to the project's root directory (drone_rl_genesis)
+#    This goes up one level from the script's directory (drone/)
+project_root = script_path.parent.parent
+
+# 3. Construct the full, absolute path to the URDF file
+urdf_file_name = "Tarot 650 Assembly_urdf.SLDASM.urdf"
+urdf_path = project_root / "custom urdf" / "Tarot 650 Assembly_urdf.SLDASM" / "urdf" / urdf_file_name
 
 def gs_rand_float(lower, upper, shape, device):
     return (upper - lower) * torch.rand(size=shape, device=device) + lower
@@ -90,7 +102,7 @@ class HoverEnv:
         self.base_init_pos = torch.tensor(self.env_cfg["base_init_pos"], device=gs.device)
         self.base_init_quat = torch.tensor(self.env_cfg["base_init_quat"], device=gs.device)
         self.inv_base_init_quat = inv_quat(self.base_init_quat)
-        self.drone = self.scene.add_entity(gs.morphs.Drone(file="/home/ishit/Genesis/custom urdf/Tarot 650 Assembly_urdf.SLDASM/urdf/Tarot 650 Assembly_urdf.SLDASM.urdf"))
+        self.drone = self.scene.add_entity(gs.morphs.Drone(file=urdf_path))
 
         # build scene
         self.scene.build(n_envs=num_envs)
