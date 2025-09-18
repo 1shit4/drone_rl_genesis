@@ -19,8 +19,8 @@ script_path = pathlib.Path(__file__).resolve()
 project_root = script_path.parent.parent
 
 # 3. Construct the full, absolute path to the URDF file
-urdf_file_name = "Tarot 650 Assembly_urdf.SLDASM.urdf"
-urdf_path = project_root / "custom urdf" / "Tarot 650 Assembly_urdf.SLDASM" / "urdf" / urdf_file_name
+urdf_file_name = "Tarot 650 Assembly_urdf_wts.SLDASM.urdf"
+urdf_path = project_root / "custom urdf" / "Tarot 650 Assembly_urdf_wts.SLDASM" / "urdf" / urdf_file_name
 
 def gs_rand_float(lower, upper, shape, device):
     return (upper - lower) * torch.rand(size=shape, device=device) + lower
