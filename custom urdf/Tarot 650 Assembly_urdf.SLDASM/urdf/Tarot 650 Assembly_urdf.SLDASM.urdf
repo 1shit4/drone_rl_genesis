@@ -1,0 +1,262 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- This URDF was automatically created by SolidWorks to URDF Exporter! Originally created by Stephen Brawner (brawner@gmail.com) 
+     Commit Version: 1.6.0-4-g7f85cfe  Build Version: 1.6.7995.38578
+     For more information, please see http://wiki.ros.org/sw_urdf_exporter -->
+<robot
+  name="Tarot 650 Assembly_urdf.SLDASM">
+
+  <properties arm="0.109" kf="8.47e-9" km="2.13e-11" thrust2weight="4.17" max_speed_kmh="200" gnd_eff_coeff="11.36859" prop_radius="12.7e-2" drag_coeff_xy="9.1785e-7" drag_coeff_z="10.311e-7" dw_coeff_1="2267.18" dw_coeff_2=".16" dw_coeff_3="-.11" />
+
+  <link
+    name="base_link">
+    <inertial>
+      <origin
+        xyz="-0.00044922 -5.5383E-05 -0.09664"
+        rpy="0 0 0" />
+      <mass
+        value="0.36098" />
+      <inertia
+        ixx="0.00042936"
+        ixy="-5.3709E-10"
+        ixz="-8.4045E-10"
+        iyy="0.0011176"
+        iyz="-1.0073E-09"
+        izz="0.0014204" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://Tarot 650 Assembly_urdf.SLDASM/meshes/base_link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.098039 0.098039 0.098039 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://Tarot 650 Assembly_urdf.SLDASM/meshes/base_link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <link
+    name="prop0_link">
+    <inertial>
+      <origin
+        xyz="-1.3702E-07 -5.5005E-08 0.0022876"
+        rpy="0 0 0" />
+      <mass
+        value="0.01994" />
+      <inertia
+        ixx="2.0199E-05"
+        ixy="5.6953E-05"
+        ixz="4.3184E-11"
+        iyy="0.00017127"
+        iyz="3.3642E-12"
+        izz="0.00019128" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://Tarot 650 Assembly_urdf.SLDASM/meshes/Motor1.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.33333 0.33333 0.33333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://Tarot 650 Assembly_urdf.SLDASM/meshes/Motor1.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="Motor1"
+    type="continuous">
+    <origin
+      xyz="0.16752 -0.15021 -0.028016"
+      rpy="0 0 0" />
+    <parent
+      link="base_link" />
+    <child
+      link="prop0_link" />
+    <axis
+      xyz="0 0 -1" />
+  </joint>
+  <link
+    name="prop2_link">
+    <inertial>
+      <origin
+        xyz="4.816E-08 3.8379E-08 -0.00036519"
+        rpy="0 0 0" />
+      <mass
+        value="0.01994" />
+      <inertia
+        ixx="5.8024E-05"
+        ixy="8.6758E-05"
+        ixz="-1.392E-11"
+        iyy="0.00013344"
+        iyz="2.4116E-11"
+        izz="0.00019128" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://Tarot 650 Assembly_urdf.SLDASM/meshes/Motor3.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.33333 0.33333 0.33333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://Tarot 650 Assembly_urdf.SLDASM/meshes/Motor3.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="Motor3"
+    type="continuous">
+    <origin
+      xyz="0.16752 0.15021 -0.028016"
+      rpy="0 0 0" />
+    <parent
+      link="base_link" />
+    <child
+      link="prop2_link" />
+    <axis
+      xyz="0 0 -1" />
+  </joint>
+  <link
+    name="prop1_link">
+    <inertial>
+      <origin
+        xyz="-1.4261E-08 -1.3868E-07 0.0031853"
+        rpy="0 0 0" />
+      <mass
+        value="0.01994" />
+      <inertia
+        ixx="7.4718E-05"
+        ixy="9.2235E-05"
+        ixz="4.483E-11"
+        iyy="0.00011675"
+        iyz="-1.4699E-11"
+        izz="0.00019128" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://Tarot 650 Assembly_urdf.SLDASM/meshes/Motor2.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.33333 0.33333 0.33333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://Tarot 650 Assembly_urdf.SLDASM/meshes/Motor2.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="Motor2"
+    type="continuous">
+    <origin
+      xyz="-0.16752 0.15021 -0.028016"
+      rpy="0 0 0" />
+    <parent
+      link="base_link" />
+    <child
+      link="prop1_link" />
+    <axis
+      xyz="0 0 -1" />
+  </joint>
+  <link
+    name="prop3_link">
+    <inertial>
+      <origin
+        xyz="1.4549E-07 -1.9932E-08 -0.00043991"
+        rpy="0 0 0" />
+      <mass
+        value="0.01994" />
+      <inertia
+        ixx="5.6385E-05"
+        ixy="-8.6028E-05"
+        ixz="4.2685E-11"
+        iyy="0.00013508"
+        iyz="7.3299E-12"
+        izz="0.00019128" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://Tarot 650 Assembly_urdf.SLDASM/meshes/Motor4.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.33333 0.33333 0.33333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://Tarot 650 Assembly_urdf.SLDASM/meshes/Motor4.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="Motor4"
+    type="continuous">
+    <origin
+      xyz="-0.16752 -0.15021 -0.028016"
+      rpy="0 0 0" />
+    <parent
+      link="base_link" />
+    <child
+      link="prop3_link" />
+    <axis
+      xyz="0 0 -1" />
+  </joint>
+</robot>

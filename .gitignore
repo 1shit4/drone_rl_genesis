@@ -1,0 +1,41 @@
+# --- Python Virtual Environment ---
+# This is the most important one for your project!
+venv/
+/venv/
+.venv/
+
+# --- Python Cache & Bytecode ---
+# These are generated automatically by Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# --- IDE & Editor Specific ---
+# For VSCode, PyCharm, etc.
+.vscode/
+.idea/
+
+# --- Operating System Files ---
+# For macOS and Windows
+.DS_Store
+Thumbs.db
+
+# --- RL & Data Science Specific ---
+# Log files from training runs
+*.log
+logs/
+
+# Large datasets or model checkpoints that shouldn't be in Git
+# Use Git LFS for these if you must track them.
+data/
+models/
+*.pt
+*.h5
+*.onnx
+
+# --- Secrets ---
+# Never commit environment variables or secrets!
+.env
+*.env
+secrets.json
