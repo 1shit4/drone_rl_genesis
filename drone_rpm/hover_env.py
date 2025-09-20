@@ -131,11 +131,11 @@ class HoverEnv:
         self.extras = dict()  # extra information for logging
         self.extras["observations"] = dict()
 
-        ### MODIFICATION START ###
         # Buffers to track the min/max of raw observation values
+        ### MODIFIED ###
         self.raw_obs_ranges = {
             "rel_pos": torch.zeros((2, 3), device=self.device),
-            "base_quat": torch.zeros((2, 4), device=self.device),
+            "base_euler": torch.zeros((2, 3), device=self.device), # Changed from base_quat
             "base_lin_vel": torch.zeros((2, 3), device=self.device),
             "base_ang_vel": torch.zeros((2, 3), device=self.device),
             "last_actions": torch.zeros((2, self.num_actions), device=self.device),
@@ -144,8 +144,6 @@ class HoverEnv:
         for k, v in self.raw_obs_ranges.items():
             v[0, :] = float('inf')
             v[1, :] = float('-inf')
-        ### MODIFICATION END ###
-
 
     def _resample_commands(self, envs_idx):
         self.commands[envs_idx, 0] = gs_rand_float(*self.command_cfg["pos_x_range"], (len(envs_idx),), gs.device)
@@ -216,27 +214,23 @@ class HoverEnv:
             rew = reward_func() * self.reward_scales[name]
             self.rew_buf += rew
             self.episode_sums[name] += rew
-
-        ### MODIFICATION START ###
+        
         # Track and print the ranges of raw observation values
+        ### MODIFIED ###
         raw_obs_tensors = {
             "rel_pos": self.rel_pos,
-            "base_quat": self.base_quat,
+            "base_euler": self.base_euler, # Changed from base_quat
             "base_lin_vel": self.base_lin_vel,
             "base_ang_vel": self.base_ang_vel,
             "last_actions": self.last_actions
         }
 
         for name, tensor in raw_obs_tensors.items():
-            # Find the min and max across all environments in the current step
             current_min = torch.min(tensor, dim=0).values
             current_max = torch.max(tensor, dim=0).values
-
-            # Update the overall min and max trackers
             self.raw_obs_ranges[name][0, :] = torch.min(self.raw_obs_ranges[name][0, :], current_min)
             self.raw_obs_ranges[name][1, :] = torch.max(self.raw_obs_ranges[name][1, :], current_max)
         
-        # Periodically print the tracked ranges (e.g., every 200 steps for env 0)
         if self.episode_length_buf[0] > 0 and self.episode_length_buf[0] % 200 == 0:
             print("\n--- Raw Observation Ranges (Min / Max) ---")
             for name, ranges in self.raw_obs_ranges.items():
@@ -246,13 +240,13 @@ class HoverEnv:
                 print(f"    Min: {min_vals}")
                 print(f"    Max: {max_vals}")
             print("----------------------------------------\n")
-        ### MODIFICATION END ###
 
         # compute observations
+        ### MODIFIED ###
         self.obs_buf = torch.cat(
             [
                 torch.clip(self.rel_pos * self.obs_scales["rel_pos"], -1, 1),
-                self.base_quat,
+                torch.clip(self.base_euler * self.obs_scales["euler"], -1, 1), # Changed from self.base_quat
                 torch.clip(self.base_lin_vel * self.obs_scales["lin_vel"], -1, 1),
                 torch.clip(self.base_ang_vel * self.obs_scales["ang_vel"], -1, 1),
                 self.last_actions,
@@ -264,6 +258,8 @@ class HoverEnv:
         self.extras["observations"]["critic"] = self.obs_buf
 
         return self.obs_buf, self.rew_buf, self.reset_buf, self.extras
+
+    # ... (rest of the file is unchanged) ...
 
     def get_observations(self):
         self.extras["observations"]["critic"] = self.obs_buf
