@@ -5,7 +5,7 @@
 <robot
   name="Tarot 650 Assembly_urdf_wts.SLDASM">
 
-  <properties arm="0.225" kf="2.98e-6" km="1.04e-7" thrust2weight="4.17" max_speed_kmh="200" gnd_eff_coeff="11.36859" prop_radius="12.7e-2" drag_coeff_xy="9.1785e-7" drag_coeff_z="10.311e-7" dw_coeff_1="2267.18" dw_coeff_2=".16" dw_coeff_3="-.11" />
+  <properties arm="0.225" kf="1.02e-6" km="1.14e-8" thrust2weight="4.17" max_speed_kmh="40" gnd_eff_coeff="11.36859" prop_radius="12.7e-2" drag_coeff_xy="9.1785e-7" drag_coeff_z="10.311e-7" dw_coeff_1="2267.18" dw_coeff_2=".16" dw_coeff_3="-.11" />
 
   <link
     name="base_link">
