@@ -79,7 +79,7 @@ def get_cfgs():
         # base pose
         "base_init_pos": [0.0, 0.0, 1.0],
         "base_init_quat": [1.0, 0.0, 0.0, 0.0],
-        "episode_length_s": 15.0,
+        "episode_length_s": 25.0,
         "at_target_threshold": 0.1,
         "resampling_time_s": 3.0,
         "simulate_action_latency": True,
@@ -90,9 +90,10 @@ def get_cfgs():
         "max_visualize_FPS": 60,
     }
     obs_cfg = {
-        "num_obs": 17,
+        "num_obs": 16,
         "obs_scales": {
             "rel_pos": 1 / 3.0,
+            "euler": 1 / 180.0,
             "lin_vel": 1 / 3.0,
             "ang_vel": 1 / 3.14159,
         },
