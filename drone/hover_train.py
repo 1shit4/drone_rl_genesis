@@ -72,7 +72,7 @@ def get_cfgs():
         # termination
         "termination_if_roll_greater_than": 180,  # degree
         "termination_if_pitch_greater_than": 180,
-        "termination_if_close_to_ground": 0.1,
+        "termination_if_close_to_ground": 0.2,
         "termination_if_x_greater_than": 3.0,
         "termination_if_y_greater_than": 3.0,
         "termination_if_z_greater_than": 2.0,
@@ -109,8 +109,8 @@ def get_cfgs():
     }
     command_cfg = {
         "num_commands": 3,
-        "pos_x_range": [-1.0, 1.0],
-        "pos_y_range": [-1.0, 1.0],
+        "pos_x_range": [1.0, 2.0],
+        "pos_y_range": [1.0, 2.0],
         "pos_z_range": [1.0, 1.0],
     }
 
