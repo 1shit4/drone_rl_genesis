@@ -9,7 +9,6 @@ from genesis.utils.geom import (
     inv_quat,
     transform_quat_by_quat,
 )
-
 # finding path for urdf
 # 1. Get the path to the current script file (hover_env.py)
 script_path = pathlib.Path(__file__).resolve()

@@ -1,5 +1,4 @@
 import torch
-import pathlib
 import math
 import copy
 import genesis as gs
@@ -14,25 +13,6 @@ from genesis.utils.geom import (
 def gs_rand_float(lower, upper, shape, device):
     return (upper - lower) * torch.rand(size=shape, device=device) + lower
 
-# finding path for urdf
-# 1. Get the path to the current script file (hover_env.py)
-script_path = pathlib.Path(__file__).resolve()
-# 2. Get the path to the project's root directory (drone_rl_genesis)
-#    This goes up one level from the script's directory (drone/)
-project_root = script_path.parent.parent
-# 3. Construct the full, absolute path to the URDF file
-urdf_file_name = "Tarot 650 Assembly_urdf_wts.SLDASM.urdf"
-urdf_path = project_root / "custom urdf" / "Tarot 650 Assembly_urdf_wts.SLDASM" / "urdf" / urdf_file_name
-
-# finding path for urdf
-# 1. Get the path to the current script file (hover_env.py)
-script_path = pathlib.Path(__file__).resolve()
-# 2. Get the path to the project's root directory (drone_rl_genesis)
-#    This goes up one level from the script's directory (drone/)
-project_root = script_path.parent.parent
-# 3. Construct the full, absolute path to the URDF file
-urdf_file_name = "Tarot 650 Assembly_urdf_wts.SLDASM.urdf"
-urdf_path = project_root / "custom urdf" / "Tarot 650 Assembly_urdf_wts.SLDASM" / "urdf" / urdf_file_name
 
 class HoverEnv:
     def __init__(self, num_envs, env_cfg, obs_cfg, reward_cfg, command_cfg, show_viewer=False):
@@ -110,7 +90,7 @@ class HoverEnv:
         self.base_init_pos = torch.tensor(self.env_cfg["base_init_pos"], device=gs.device)
         self.base_init_quat = torch.tensor(self.env_cfg["base_init_quat"], device=gs.device)
         self.inv_base_init_quat = inv_quat(self.base_init_quat)
-        self.drone = self.scene.add_entity(gs.morphs.Drone(file=urdf_path))
+        self.drone = self.scene.add_entity(gs.morphs.Drone(file="urdf/drones/cf2x.urdf"))
 
         # build scene
         self.scene.build(n_envs=num_envs)
@@ -159,7 +139,7 @@ class HoverEnv:
 
         # 14468 is hover rpm
         # self.drone.set_propellels_rpm((1 + exec_actions * 0.8) * 14468.429183500699)
-        mass = 2.267
+        mass = 0.027
         g = 9.81
         p_gains = torch.tensor([0.00015, 0.00015, 0.0001], device=gs.device)
         inv_mixer = torch.tensor([
@@ -168,8 +148,7 @@ class HoverEnv:
         [ 0.25,  2.5189,  2.5189, -31.5226],
         [ 0.25,  2.5189, -2.5189,  31.5226]
         ], device=gs.device)
-        kf = 1.02e-6
-        # kf = 3.16e-10  * 49 
+        kf = 3.16e-10  * 49 
 
         max_thrust = mass*g*2.25##max thrust is 0.5 x weight
         max_ang_vel = 2*math.pi #max angular velocity is 2* pi rad/s
@@ -182,9 +161,8 @@ class HoverEnv:
         cin = torch.stack([thrust, Moment[:,0], Moment[:,1], Moment[:,2]], dim=1)
         m_t = torch.matmul(inv_mixer, cin.T).T
 
-        rpm = torch.sqrt(torch.clamp(m_t, min=0)/kf) * (60 / (2*math.pi))/100
+        rpm = torch.sqrt(torch.clamp(m_t, min=0)/kf) * (60 / (2*math.pi))
         self.drone.set_propellels_rpm(rpm)
-        print(rpm)
 
         # update target pos
         if self.target is not None:
@@ -239,11 +217,10 @@ class HoverEnv:
             self.episode_sums[name] += rew
 
         # compute observations
-        ### MODIFIED ###
         self.obs_buf = torch.cat(
             [
                 torch.clip(self.rel_pos * self.obs_scales["rel_pos"], -1, 1),
-                torch.clip(self.base_euler * self.obs_scales["euler"], -1, 1), # Changed from self.base_quat
+                self.base_quat,
                 torch.clip(self.base_lin_vel * self.obs_scales["lin_vel"], -1, 1),
                 torch.clip(self.base_ang_vel * self.obs_scales["ang_vel"], -1, 1),
                 self.last_actions,
@@ -255,8 +232,6 @@ class HoverEnv:
         self.extras["observations"]["critic"] = self.obs_buf
 
         return self.obs_buf, self.rew_buf, self.reset_buf, self.extras
-
-    # ... (rest of the file is unchanged) ...
 
     def get_observations(self):
         self.extras["observations"]["critic"] = self.obs_buf
