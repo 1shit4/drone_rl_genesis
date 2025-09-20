@@ -1,5 +1,6 @@
 import torch
 import math
+import pathlib
 import copy
 import genesis as gs
 from genesis.utils.geom import (
@@ -9,6 +10,15 @@ from genesis.utils.geom import (
     transform_quat_by_quat,
 )
 
+# finding path for urdf
+# 1. Get the path to the current script file (hover_env.py)
+script_path = pathlib.Path(__file__).resolve()
+# 2. Get the path to the project's root directory (drone_rl_genesis)
+#    This goes up one level from the script's directory (drone/)
+project_root = script_path.parent.parent
+# 3. Construct the full, absolute path to the URDF file
+urdf_file_name = "Tarot 650 Assembly_urdf_wts.SLDASM.urdf"
+urdf_path = project_root / "custom urdf" / "Tarot 650 Assembly_urdf_wts.SLDASM" / "urdf" / urdf_file_name
 
 def gs_rand_float(lower, upper, shape, device):
     return (upper - lower) * torch.rand(size=shape, device=device) + lower
@@ -90,7 +100,7 @@ class HoverEnv:
         self.base_init_pos = torch.tensor(self.env_cfg["base_init_pos"], device=gs.device)
         self.base_init_quat = torch.tensor(self.env_cfg["base_init_quat"], device=gs.device)
         self.inv_base_init_quat = inv_quat(self.base_init_quat)
-        self.drone = self.scene.add_entity(gs.morphs.Drone(file="urdf/drones/cf2x.urdf"))
+        self.drone = self.scene.add_entity(gs.morphs.Drone(file=urdf_path))
 
         # build scene
         self.scene.build(n_envs=num_envs)
@@ -121,6 +131,22 @@ class HoverEnv:
         self.extras = dict()  # extra information for logging
         self.extras["observations"] = dict()
 
+        ### MODIFICATION START ###
+        # Buffers to track the min/max of raw observation values
+        self.raw_obs_ranges = {
+            "rel_pos": torch.zeros((2, 3), device=self.device),
+            "base_quat": torch.zeros((2, 4), device=self.device),
+            "base_lin_vel": torch.zeros((2, 3), device=self.device),
+            "base_ang_vel": torch.zeros((2, 3), device=self.device),
+            "last_actions": torch.zeros((2, self.num_actions), device=self.device),
+        }
+        # Initialize min values to infinity and max values to negative infinity
+        for k, v in self.raw_obs_ranges.items():
+            v[0, :] = float('inf')
+            v[1, :] = float('-inf')
+        ### MODIFICATION END ###
+
+
     def _resample_commands(self, envs_idx):
         self.commands[envs_idx, 0] = gs_rand_float(*self.command_cfg["pos_x_range"], (len(envs_idx),), gs.device)
         self.commands[envs_idx, 1] = gs_rand_float(*self.command_cfg["pos_y_range"], (len(envs_idx),), gs.device)
@@ -138,32 +164,7 @@ class HoverEnv:
         exec_actions = self.actions
 
         # 14468 is hover rpm
-        # self.drone.set_propellels_rpm((1 + exec_actions * 0.8) * 14468.429183500699)
-        mass = 0.027
-        g = 9.81
-        p_gains = torch.tensor([0.00015, 0.00015, 0.0001], device=gs.device)
-        inv_mixer = torch.tensor([
-        [ 0.25, -2.5189, -2.5189, -31.5226],
-        [ 0.25, -2.5189,  2.5189,  31.5226],
-        [ 0.25,  2.5189,  2.5189, -31.5226],
-        [ 0.25,  2.5189, -2.5189,  31.5226]
-        ], device=gs.device)
-        kf = 3.16e-10  * 49 
-
-        max_thrust = mass*g*2.25##max thrust is 0.5 x weight
-        max_ang_vel = 2*math.pi #max angular velocity is 2* pi rad/s
-        ang_vel = self.base_ang_vel
-        thrust = ((exec_actions[:,0] + 1)/2)*max_thrust
-
-        Moment = p_gains*(exec_actions[:,1:4]*max_ang_vel - ang_vel)
-
-       
-        cin = torch.stack([thrust, Moment[:,0], Moment[:,1], Moment[:,2]], dim=1)
-        m_t = torch.matmul(inv_mixer, cin.T).T
-
-        rpm = torch.sqrt(torch.clamp(m_t, min=0)/kf) * (60 / (2*math.pi))
-        self.drone.set_propellels_rpm(rpm)
-
+        self.drone.set_propellels_rpm((1 + exec_actions * 0.8) * 14468.429183500699)
         # update target pos
         if self.target is not None:
             self.target.set_pos(self.commands, zero_velocity=True)
@@ -215,6 +216,37 @@ class HoverEnv:
             rew = reward_func() * self.reward_scales[name]
             self.rew_buf += rew
             self.episode_sums[name] += rew
+
+        ### MODIFICATION START ###
+        # Track and print the ranges of raw observation values
+        raw_obs_tensors = {
+            "rel_pos": self.rel_pos,
+            "base_quat": self.base_quat,
+            "base_lin_vel": self.base_lin_vel,
+            "base_ang_vel": self.base_ang_vel,
+            "last_actions": self.last_actions
+        }
+
+        for name, tensor in raw_obs_tensors.items():
+            # Find the min and max across all environments in the current step
+            current_min = torch.min(tensor, dim=0).values
+            current_max = torch.max(tensor, dim=0).values
+
+            # Update the overall min and max trackers
+            self.raw_obs_ranges[name][0, :] = torch.min(self.raw_obs_ranges[name][0, :], current_min)
+            self.raw_obs_ranges[name][1, :] = torch.max(self.raw_obs_ranges[name][1, :], current_max)
+        
+        # Periodically print the tracked ranges (e.g., every 200 steps for env 0)
+        if self.episode_length_buf[0] > 0 and self.episode_length_buf[0] % 200 == 0:
+            print("\n--- Raw Observation Ranges (Min / Max) ---")
+            for name, ranges in self.raw_obs_ranges.items():
+                min_vals = [f"{x:.4f}" for x in ranges[0, :]]
+                max_vals = [f"{x:.4f}" for x in ranges[1, :]]
+                print(f"  {name}:")
+                print(f"    Min: {min_vals}")
+                print(f"    Max: {max_vals}")
+            print("----------------------------------------\n")
+        ### MODIFICATION END ###
 
         # compute observations
         self.obs_buf = torch.cat(
