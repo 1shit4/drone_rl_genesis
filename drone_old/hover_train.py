@@ -72,14 +72,14 @@ def get_cfgs():
         # termination
         "termination_if_roll_greater_than": 180,  # degree
         "termination_if_pitch_greater_than": 180,
-        "termination_if_close_to_ground": 0.1,
+        "termination_if_close_to_ground": 0.2,
         "termination_if_x_greater_than": 3.0,
         "termination_if_y_greater_than": 3.0,
         "termination_if_z_greater_than": 2.0,
         # base pose
         "base_init_pos": [0.0, 0.0, 1.0],
         "base_init_quat": [1.0, 0.0, 0.0, 0.0],
-        "episode_length_s": 25.0,
+        "episode_length_s": 15.0,
         "at_target_threshold": 0.1,
         "resampling_time_s": 3.0,
         "simulate_action_latency": True,
@@ -90,10 +90,9 @@ def get_cfgs():
         "max_visualize_FPS": 60,
     }
     obs_cfg = {
-        "num_obs": 16,
+        "num_obs": 17,
         "obs_scales": {
             "rel_pos": 1 / 3.0,
-            "euler": 1 / 180.0,
             "lin_vel": 1 / 3.0,
             "ang_vel": 1 / 3.14159,
         },
@@ -110,8 +109,8 @@ def get_cfgs():
     }
     command_cfg = {
         "num_commands": 3,
-        "pos_x_range": [-1.0, 1.0],
-        "pos_y_range": [-1.0, 1.0],
+        "pos_x_range": [1.0, 2.0],
+        "pos_y_range": [1.0, 2.0],
         "pos_z_range": [1.0, 1.0],
     }
 
