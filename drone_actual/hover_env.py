@@ -1,6 +1,7 @@
 import torch
 import math
 import copy
+import pathlib
 import genesis as gs
 from genesis.utils.geom import (
     quat_to_xyz,
@@ -13,6 +14,11 @@ from genesis.utils.geom import (
 def gs_rand_float(lower, upper, shape, device):
     return (upper - lower) * torch.rand(size=shape, device=device) + lower
 
+
+script_path = pathlib.Path(__file__).resolve()
+project_root = script_path.parent.parent
+urdf_file_name = "Tarot 650 Assembly_urdf_wts.SLDASM.urdf"
+urdf_path = project_root / "custom urdf" / "Tarot 650 Assembly_urdf_wts.SLDASM" / "urdf" / urdf_file_name
 
 class HoverEnv:
     def __init__(self, num_envs, env_cfg, obs_cfg, reward_cfg, command_cfg, show_viewer=False):
@@ -94,7 +100,7 @@ class HoverEnv:
         self.base_init_pos = torch.tensor(self.env_cfg["base_init_pos"], device=gs.device)
         self.base_init_quat = torch.tensor(self.env_cfg["base_init_quat"], device=gs.device)
         self.inv_base_init_quat = inv_quat(self.base_init_quat)
-        self.drone = self.scene.add_entity(gs.morphs.Drone(file="urdf/drones/cf2x.urdf"))
+        self.drone = self.scene.add_entity(gs.morphs.Drone(file=urdf_path))
 
         # build scene
         self.scene.build(n_envs=num_envs)
@@ -143,16 +149,17 @@ class HoverEnv:
 
         # 14468 is hover rpm
         # self.drone.set_propellels_rpm((1 + exec_actions * 0.8) * 14468.429183500699)
-        mass = 0.027
+        mass = 2.267
         g = 9.81
         
         inv_mixer = torch.tensor([
-        [ 0.25, -2.5189, -2.5189, -31.5226],
-        [ 0.25, -2.5189,  2.5189,  31.5226],
-        [ 0.25,  2.5189,  2.5189, -31.5226],
-        [ 0.25,  2.5189, -2.5189,  31.5226]
+          [ 0.25, -1.5714,  1.5714, -22.3694],
+          [ 0.25,  1.5714,  1.5714,  22.3694],
+          [ 0.25,  1.5714, -1.5714, -22.3694],
+          [ 0.25, -1.5714, -1.5714,  22.3694]
         ], device=gs.device)
-        kf = 3.16e-10  * 49 
+        #kf = 3.16e-10  * 49 
+        kf = 1.02e-8
 
         max_thrust = mass*g*2.25##max thrust is 0.5 x weight
         max_ang_vel = 2*math.pi #max angular velocity is 2* pi rad/s
@@ -164,7 +171,7 @@ class HoverEnv:
         cin = torch.stack([thrust, Moment[:,0], Moment[:,1], Moment[:,2]], dim=1)
         m_t = torch.matmul(inv_mixer, cin.T).T
 
-        rpm = torch.sqrt(torch.clamp(m_t, min=0)/kf) * (60 / (2*math.pi))
+        rpm = torch.sqrt(torch.clamp(m_t, min=0)/kf) * (60 / (2*math.pi))/50
         self.drone.set_propellels_rpm(rpm)
 
         # update target pos
@@ -238,9 +245,9 @@ class HoverEnv:
     
     def pid(self, target, current, error_prev, integral):
     
-        kp = torch.tensor([0.0005, 0.0005, 0.0003], device=gs.device)
-        kd = torch.tensor([0.000005, 0.000005, 0.000003], device=gs.device)
-        ki = torch.tensor([0.000005, 0.000005, 0.000003], device=gs.device)
+        kp = torch.tensor([0.00005, 0.00005, 0.00003], device=gs.device)
+        kd = torch.tensor([0.0000005, 0.0000005, 0.0000003], device=gs.device)
+        ki = torch.tensor([0.0000005, 0.0000005, 0.0000003], device=gs.device)
         
         error = target - current
         derivative = (error - error_prev) / self.dt
