@@ -328,3 +328,8 @@ class HoverEnv:
         crash_rew = torch.zeros((self.num_envs,), device=gs.device, dtype=gs.tc_float)
         crash_rew[self.crash_condition] = 1
         return crash_rew
+    
+    def _reward_stay_on_target(self):
+        distance_to_target = torch.norm(self.rel_pos, dim=1)
+        stay_rew = torch.where(distance_to_target < self.env_cfg["at_target_threshold"], 1.0, 0.0)
+        return stay_rew

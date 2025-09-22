@@ -70,17 +70,17 @@ def get_cfgs():
     env_cfg = {
         "num_actions": 4,
         # termination
-        "termination_if_roll_greater_than": 180,  # degree
-        "termination_if_pitch_greater_than": 180,
+        "termination_if_roll_greater_than": 90,  # degree
+        "termination_if_pitch_greater_than": 90,
         "termination_if_close_to_ground": 0.1,
-        "termination_if_x_greater_than": 4.0,
-        "termination_if_y_greater_than": 4.0,
-        "termination_if_z_greater_than": 3.0,
+        "termination_if_x_greater_than": 5.0,
+        "termination_if_y_greater_than": 5.0,
+        "termination_if_z_greater_than": 2.0,
         # base pose
         "base_init_pos": [0.0, 0.0, 1.0],
         "base_init_quat": [1.0, 0.0, 0.0, 0.0],
-        "episode_length_s": 15.0,
-        "at_target_threshold": 0.1,
+        "episode_length_s": 25.0,
+        "at_target_threshold": 0.05,
         "resampling_time_s": 3.0,
         "simulate_action_latency": True,
         "clip_actions": 1.0,
@@ -105,13 +105,14 @@ def get_cfgs():
             "yaw": 0.01,
             "angular": -2e-4,
             "crash": -10.0,
+            "stay_on_target": 2.0,
         },
     }
     command_cfg = {
         "num_commands": 3,
-        "pos_x_range": [-1.5, 1.5],
-        "pos_y_range": [-1.5, 1.5],
-        "pos_z_range": [2.5, 2.5],
+        "pos_x_range": [1, 4],
+        "pos_y_range": [1, 4],
+        "pos_z_range": [0.5, 2.0],
     }
 
     return env_cfg, obs_cfg, reward_cfg, command_cfg
