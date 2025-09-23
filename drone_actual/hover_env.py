@@ -168,16 +168,46 @@ class HoverEnv:
 
         Moment = self.pid(exec_actions[:,1:4]*max_ang_vel, ang_vel, self.error_prev, self.integral)
        
+        # --- START CORRECT DIAGNOSTIC BLOCK ---
+        # This checks for invalid values right after they are calculated and before they crash the simulation.
+        if torch.isnan(thrust).any() or torch.isinf(thrust).any() or torch.isnan(Moment).any() or torch.isinf(Moment).any():
+            print("\n" + "="*80)
+            print("!!! DIAGNOSTIC: Invalid values DETECTED in Thrust/Moment calculation!")
+            print(f"    Thrust (has_nan / has_inf): {torch.isnan(thrust).any()} / {torch.isinf(thrust).any()}")
+            print(f"    Moment (has_nan / has_inf): {torch.isnan(Moment).any()} / {torch.isinf(Moment).any()}")
+            print(f"    Integral (min/max/has_inf): {torch.min(self.integral):.2f} / {torch.max(self.integral):.2f} / {torch.isinf(self.integral).any()}")
+            print("="*80 + "\n")
+        # --- END CORRECT DIAGNOSTIC BLOCK ---
+
         cin = torch.stack([thrust, Moment[:,0], Moment[:,1], Moment[:,2]], dim=1)
         m_t = torch.matmul(inv_mixer, cin.T).T
 
         rpm = torch.sqrt(torch.clamp(m_t, min=0)/kf) * (60 / (2*math.pi))/50
+  
         self.drone.set_propellels_rpm(rpm)
 
         # update target pos
         if self.target is not None:
             self.target.set_pos(self.commands, zero_velocity=True)
         self.scene.step()
+
+        # --- START POST-PHYSICS DIAGNOSTIC ---
+        # Check the state of ALL drones for corruption immediately after the physics engine runs.
+        all_pos = self.drone.get_pos()
+        all_quat = self.drone.get_quat()
+        all_vel = self.drone.get_vel()
+        all_ang = self.drone.get_ang()
+
+        if torch.isnan(all_pos).any() or torch.isinf(all_pos).any() or torch.isnan(all_vel).any() or torch.isinf(all_vel).any():
+            print("\n" + "="*80)
+            print("!!! DIAGNOSTIC: STATE CORRUPTION DETECTED AFTER PHYSICS STEP !!!")
+            print(f"    NaN/Inf in positions: {torch.isnan(all_pos).any() or torch.isinf(all_pos).any()}")
+            print(f"    NaN/Inf in rotations: {torch.isnan(all_quat).any() or torch.isinf(all_quat).any()}")
+            print(f"    NaN/Inf in linear velocities: {torch.isnan(all_vel).any() or torch.isinf(all_vel).any()}")
+            print(f"    NaN/Inf in angular velocities: {torch.isnan(all_ang).any() or torch.isinf(all_ang).any()}")
+            print("="*80 + "\n")
+        # --- END POST-PHYSICS DIAGNOSTIC ---
+
 
         # update buffers
         self.episode_length_buf += 1
@@ -252,6 +282,11 @@ class HoverEnv:
         error = target - current
         derivative = (error - error_prev) / self.dt
         integral = integral + error * self.dt
+
+        #clamping integral to prevent windup
+        integral = torch.clamp(integral, -10.0, 10.0)
+
+
         output = kp * error + kd * derivative + ki *integral
         
         self.error_prev[:] = error  # update previous error
@@ -269,6 +304,23 @@ class HoverEnv:
         if len(envs_idx) == 0:
             return
 
+        # --- START CORRECT DIAGNOSTIC BLOCK ---
+        # Check for NaNs in the state tensors of the environments that are about to be reset.
+        if torch.isnan(self.base_pos[envs_idx]).any() or \
+           torch.isnan(self.base_quat[envs_idx]).any() or \
+           torch.isnan(self.base_lin_vel[envs_idx]).any() or \
+           torch.isnan(self.base_ang_vel[envs_idx]).any():
+            print("\n" + "="*80)
+            print("!!! DIAGNOSTIC: NaNs DETECTED in drone state BEFORE reset!")
+            print(f"    Affected env_ids: {envs_idx.tolist()}")
+            print(f"    NaNs in positions: {torch.isnan(self.base_pos[envs_idx]).any()}")
+            print(f"    NaNs in rotations: {torch.isnan(self.base_quat[envs_idx]).any()}")
+            print(f"    NaNs in linear velocities: {torch.isnan(self.base_lin_vel[envs_idx]).any()}")
+            print(f"    NaNs in angular velocities: {torch.isnan(self.base_ang_vel[envs_idx]).any()}")
+            print("="*80 + "\n")
+        # --- END CORRECT DIAGNOSTIC BLOCK ---
+        
+        
         # reset base
         self.base_pos[envs_idx] = self.base_init_pos
         self.last_base_pos[envs_idx] = self.base_init_pos
@@ -331,5 +383,6 @@ class HoverEnv:
     
     def _reward_stay_on_target(self):
         distance_to_target = torch.norm(self.rel_pos, dim=1)
-        stay_rew = torch.where(distance_to_target < self.env_cfg["at_target_threshold"], 1.0, 0.0)
+        #stay_rew = torch.where(distance_to_target < self.env_cfg["at_target_threshold"], 1.0, 0.0)
+        stay_rew = torch.exp(self.reward_cfg["target_lambda"] * distance_to_target)
         return stay_rew

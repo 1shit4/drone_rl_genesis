@@ -89,7 +89,7 @@
   </link>
   <joint
     name="Motor1"
-    type="continuous">
+    type="fixed">
     <origin
       xyz="0.16752 -0.15021 -0.028016"
       rpy="0 0 0" />
@@ -142,7 +142,7 @@
   </link>
   <joint
     name="Motor3"
-    type="continuous">
+    type="fixed">
     <origin
       xyz="0.16752 0.15021 -0.028016"
       rpy="0 0 0" />
@@ -195,7 +195,7 @@
   </link>
   <joint
     name="Motor2"
-    type="continuous">
+    type="fixed">
     <origin
       xyz="-0.16752 0.15021 -0.028016"
       rpy="0 0 0" />
@@ -248,7 +248,7 @@
   </link>
   <joint
     name="Motor4"
-    type="continuous">
+    type="fixed">
     <origin
       xyz="-0.16752 -0.15021 -0.028016"
       rpy="0 0 0" />

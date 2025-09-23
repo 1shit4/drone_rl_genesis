@@ -1,3 +1,5 @@
+import faulthandler
+faulthandler.enable()
 import argparse
 import os
 import pickle
@@ -29,10 +31,10 @@ def get_train_cfg(exp_name, max_iterations):
             "entropy_coef": 0.004,
             "gamma": 0.99,
             "lam": 0.95,
-            "learning_rate": 0.00005,
+            "learning_rate": 0.0001,
             "max_grad_norm": 1.0,
-            "num_learning_epochs": 5,
-            "num_mini_batches": 4,
+            "num_learning_epochs": 6,
+            "num_mini_batches": 64,
             "schedule": "adaptive",
             "use_clipped_value_loss": True,
             "value_loss_coef": 1.0,
@@ -40,8 +42,8 @@ def get_train_cfg(exp_name, max_iterations):
         "init_member_classes": {},
         "policy": {
             "activation": "tanh",
-            "actor_hidden_dims": [128, 128],
-            "critic_hidden_dims": [128, 128],
+            "actor_hidden_dims": [256, 128],
+            "critic_hidden_dims": [256, 128],
             "init_noise_std": 1.0,
             "class_name": "ActorCritic",
         },
@@ -57,7 +59,7 @@ def get_train_cfg(exp_name, max_iterations):
             "run_name": "",
         },
         "runner_class_name": "OnPolicyRunner",
-        "num_steps_per_env": 100,
+        "num_steps_per_env": 400,
         "save_interval": 100,
         "empirical_normalization": True,
         "seed": 1,
@@ -72,14 +74,14 @@ def get_cfgs():
         # termination
         "termination_if_roll_greater_than": 90,  # degree
         "termination_if_pitch_greater_than": 90,
-        "termination_if_close_to_ground": 0.1,
+        "termination_if_close_to_ground": 0.3,
         "termination_if_x_greater_than": 5.0,
         "termination_if_y_greater_than": 5.0,
         "termination_if_z_greater_than": 2.0,
         # base pose
-        "base_init_pos": [0.0, 0.0, 1.0],
+        "base_init_pos": [0.0, 0.0, 2.0],
         "base_init_quat": [1.0, 0.0, 0.0, 0.0],
-        "episode_length_s": 25.0,
+        "episode_length_s": 60.0,
         "at_target_threshold": 0.05,
         "resampling_time_s": 3.0,
         "simulate_action_latency": True,
@@ -93,17 +95,18 @@ def get_cfgs():
         "num_obs": 17,
         "obs_scales": {
             "rel_pos": 1 / 3.0,
-            "lin_vel": 1 / 3.0,
+            "lin_vel": 1 / 8.0,
             "ang_vel": 1 / 3.14159,
         },
     }
     reward_cfg = {
         "yaw_lambda": -10.0,
+        "target_lambda": -0.8,
         "reward_scales": {
             "target": 10.0,
-            "smooth": -1e-4,
-            "yaw": 0.01,
-            "angular": -2e-4,
+         #  "smooth": -1e-4,
+         #   "yaw": 0.01,
+         #   "angular": -2e-4,
             "crash": -10.0,
             "stay_on_target": 2.0,
         },
@@ -112,7 +115,7 @@ def get_cfgs():
         "num_commands": 3,
         "pos_x_range": [1, 4],
         "pos_y_range": [1, 4],
-        "pos_z_range": [0.5, 2.0],
+        "pos_z_range": [1.0, 3.0],
     }
 
     return env_cfg, obs_cfg, reward_cfg, command_cfg
