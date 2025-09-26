@@ -127,6 +127,8 @@ def main():
     parser.add_argument("-v", "--vis", action="store_true", default=False)
     parser.add_argument("-B", "--num_envs", type=int, default=8192)
     parser.add_argument("--max_iterations", type=int, default=301)
+    parser.add_argument("--resume", action="store_true", default=False, help="Resume training from a checkpoint")
+    parser.add_argument("--load_model", type=str, default=None, help="Path to the model checkpoint to load")
     args = parser.parse_args()
 
     gs.init(logging_level="warning")
@@ -135,29 +137,37 @@ def main():
     env_cfg, obs_cfg, reward_cfg, command_cfg = get_cfgs()
     train_cfg = get_train_cfg(args.exp_name, args.max_iterations)
 
-    if os.path.exists(log_dir):
-        shutil.rmtree(log_dir)
-    os.makedirs(log_dir, exist_ok=True)
+    if not args.resume and os.path.exists(log_dir):
+        if os.path.exists(log_dir):
+            shutil.rmtree(log_dir)
+        os.makedirs(log_dir, exist_ok=True)
 
     if args.vis:
         env_cfg["visualize_target"] = True
 
-    pickle.dump(
-        [env_cfg, obs_cfg, reward_cfg, command_cfg, train_cfg],
-        open(f"{log_dir}/cfgs.pkl", "wb"),
-    )
+    if not args.resume:
+        pickle.dump(
+            [env_cfg, obs_cfg, reward_cfg, command_cfg, train_cfg],
+            open(f"{log_dir}/cfgs.pkl", "wb"),
+        )
+    if args.resume:
+        env_cfg, obs_cfg, reward_cfg, command_cfg, _ = pickle.load(open(f"{log_dir}/cfgs.pkl", "rb"))
+        train_cfg = get_train_cfg(args.exp_name, args.max_iterations)
 
     env = HoverEnv(
-        num_envs=args.num_envs,
-        env_cfg=env_cfg,
-        obs_cfg=obs_cfg,
-        reward_cfg=reward_cfg,
-        command_cfg=command_cfg,
-        show_viewer=args.vis,
-    )
+            num_envs=args.num_envs,
+            env_cfg=env_cfg,
+            obs_cfg=obs_cfg,
+            reward_cfg=reward_cfg,
+            command_cfg=command_cfg,
+            show_viewer=args.vis,
+        )
 
     runner = OnPolicyRunner(env, train_cfg, log_dir, device=gs.device)
-
+    if args.resume:
+        resume_path = args.load_model
+        print(f"Resuming training from checkpoint: {resume_path}")
+        runner.load(resume_path)
     runner.learn(num_learning_iterations=args.max_iterations, init_at_random_ep_len=True)
 
 
