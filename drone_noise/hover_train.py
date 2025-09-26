@@ -96,6 +96,8 @@ def get_cfgs():
              "mass_scale": [0.9, 1.1],      # Randomly scale mass by 80% to 120%
              "actuator_scale": [0.95, 1.05],
              "action_smoothing_scale": [0.8, 1.0], # Randomly scale action smoothing (inertia) by 90% to 100%
+        #success timer
+        "success_hold_timesteps": 100, #number of timesteps to hold the drone at the target position for a successful episode
         }
     }
     obs_cfg = {
@@ -117,7 +119,8 @@ def get_cfgs():
          #   "yaw": 0.01,
          #   "angular": -2e-4,
             "crash": -10.0,
-            "stay_on_target": 2.0,
+            "go_near_target": 2.0,
+            "stay_on_target": 20.0,
         },
     }
     command_cfg = {
