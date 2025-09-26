@@ -90,9 +90,9 @@ class HoverEnv:
         if self.env_cfg["visualize_camera"]:
             self.cam = self.scene.add_camera(
                 res=(640, 480),
-                pos=(3.5, 0.0, 2.5),
-                lookat=(0, 0, 0.5),
-                fov=30,
+                pos=(-2.0, -2.0, 5.0),
+                lookat=(2.0, 2.0, 2.0),
+                fov=50,
                 GUI=True,
             )
 
@@ -131,6 +131,19 @@ class HoverEnv:
         self.extras = dict()  # extra information for logging
         self.extras["observations"] = dict()
 
+        # --- START NEW CODE ---
+        # The number of timesteps a drone must stay at the target before it counts as a success.
+        # You will need to add "success_hold_timesteps" to your config file (e.g., set it to 25 for 0.25s)
+        self.success_hold_timesteps = env_cfg["success_hold_timesteps"]
+        
+        # Buffer to track how long each drone has been at its target.
+        self.success_timer_buf = torch.zeros((self.num_envs,), device=gs.device, dtype=gs.tc_int)
+        
+        # Buffer to log if a success has occurred in the current episode for each env.
+        # 1.0 = success happened, 0.0 = no success yet.
+        self.episode_has_success = torch.zeros((self.num_envs,), device=gs.device, dtype=gs.tc_float)
+        # --- END NEW CODE ---
+
     def _resample_commands(self, envs_idx):
         self.commands[envs_idx, 0] = gs_rand_float(*self.command_cfg["pos_x_range"], (len(envs_idx),), gs.device)
         self.commands[envs_idx, 1] = gs_rand_float(*self.command_cfg["pos_y_range"], (len(envs_idx),), gs.device)
@@ -158,26 +171,14 @@ class HoverEnv:
           [ 0.25,  1.5714, -1.5714, -22.3694],
           [ 0.25, -1.5714, -1.5714,  22.3694]
         ], device=gs.device)
-        #kf = 3.16e-10  * 49 
         kf = 1.02e-8
 
-        max_thrust = mass*g*2.25##max thrust is 0.5 x weight
-        max_ang_vel = 2*math.pi #max angular velocity is 2* pi rad/s
+        max_thrust = mass*g*2.25  ##max thrust is 2.25 x weight
+        max_ang_vel = 2*math.pi   #max angular velocity is 2* pi rad/s
         ang_vel = self.base_ang_vel
         thrust = ((exec_actions[:,0] + 1)/2)*max_thrust
 
         Moment = self.pid(exec_actions[:,1:4]*max_ang_vel, ang_vel, self.error_prev, self.integral)
-       
-        # --- START CORRECT DIAGNOSTIC BLOCK ---
-        # This checks for invalid values right after they are calculated and before they crash the simulation.
-        if torch.isnan(thrust).any() or torch.isinf(thrust).any() or torch.isnan(Moment).any() or torch.isinf(Moment).any():
-            print("\n" + "="*80)
-            print("!!! DIAGNOSTIC: Invalid values DETECTED in Thrust/Moment calculation!")
-            print(f"    Thrust (has_nan / has_inf): {torch.isnan(thrust).any()} / {torch.isinf(thrust).any()}")
-            print(f"    Moment (has_nan / has_inf): {torch.isnan(Moment).any()} / {torch.isinf(Moment).any()}")
-            print(f"    Integral (min/max/has_inf): {torch.min(self.integral):.2f} / {torch.max(self.integral):.2f} / {torch.isinf(self.integral).any()}")
-            print("="*80 + "\n")
-        # --- END CORRECT DIAGNOSTIC BLOCK ---
 
         cin = torch.stack([thrust, Moment[:,0], Moment[:,1], Moment[:,2]], dim=1)
         m_t = torch.matmul(inv_mixer, cin.T).T
@@ -191,27 +192,35 @@ class HoverEnv:
             self.target.set_pos(self.commands, zero_velocity=True)
         self.scene.step()
 
-        # --- START POST-PHYSICS DIAGNOSTIC ---
-        # Check the state of ALL drones for corruption immediately after the physics engine runs.
         all_pos = self.drone.get_pos()
         all_quat = self.drone.get_quat()
         all_vel = self.drone.get_vel()
         all_ang = self.drone.get_ang()
 
-        if torch.isnan(all_pos).any() or torch.isinf(all_pos).any() or torch.isnan(all_vel).any() or torch.isinf(all_vel).any():
+        # --- START DEFINITIVE DIAGNOSTIC AND STABILIZATION ---
+        
+        # 1. Calculate the norm of all quaternions
+        quat_norm = torch.norm(all_quat, p=2, dim=1)
+
+        # 2. THIS IS THE DIAGNOSTIC "PINPOINTER"
+        if torch.isnan(all_quat).any() or torch.isinf(all_quat).any() or torch.any(quat_norm < 1e-6):
             print("\n" + "="*80)
-            print("!!! DIAGNOSTIC: STATE CORRUPTION DETECTED AFTER PHYSICS STEP !!!")
-            print(f"    NaN/Inf in positions: {torch.isnan(all_pos).any() or torch.isinf(all_pos).any()}")
-            print(f"    NaN/Inf in rotations: {torch.isnan(all_quat).any() or torch.isinf(all_quat).any()}")
-            print(f"    NaN/Inf in linear velocities: {torch.isnan(all_vel).any() or torch.isinf(all_vel).any()}")
-            print(f"    NaN/Inf in angular velocities: {torch.isnan(all_ang).any() or torch.isinf(all_ang).any()}")
+            print("!!! DIAGNOSTIC: QUATERNION CORRUPTION DETECTED AFTER PHYSICS STEP !!!")
+            print(f"    Quaternions contain NaN: {torch.isnan(all_quat).any()}")
+            print(f"    Quaternions contain Inf: {torch.isinf(all_quat).any()}")
+            print(f"    Min quaternion norm: {torch.min(quat_norm).item()}")
+            bad_env_indices = (quat_norm < 1e-6).nonzero(as_tuple=False).squeeze(-1)
+            print(f"    Indices of envs with zero-norm quaternions: {bad_env_indices}")
             print("="*80 + "\n")
-        # --- END POST-PHYSICS DIAGNOSTIC ---
 
+        # 3. THIS IS THE PROACTIVE FIX
+        all_quat = all_quat / (quat_norm.unsqueeze(-1) + 1e-8)
 
+        # --- END DEFINITIVE DIAGNOSTIC AND STABILIZATION ---
+      
         # update buffers
         self.episode_length_buf += 1
-        self.last_base_pos[:] = self.base_pos[:]
+        self.last_base_pos[:] = self.base_pos[:] 
         self.base_pos[:] = self.drone.get_pos()
         self.rel_pos = self.commands - self.base_pos
         self.last_rel_pos = self.commands - self.last_base_pos
@@ -229,8 +238,37 @@ class HoverEnv:
         self.base_ang_vel[:] = transform_by_quat(self.drone.get_ang(), inv_base_quat)
 
         # resample commands
-        envs_idx = self._at_target()
-        self._resample_commands(envs_idx)
+        #envs_idx = self._at_target()
+        #self._resample_commands(envs_idx)
+
+
+        # --- START REPLACEMENT BLOCK: DELAYED RESAMPLING AND COUNTING ---
+
+        # 1. Identify which drones are currently inside the target radius.
+        at_target_indices = self._at_target()
+        at_target_mask = torch.zeros((self.num_envs,), device=gs.device, dtype=torch.bool)
+        if len(at_target_indices) > 0:
+            at_target_mask[at_target_indices] = True
+
+        # 2. Increment the timer for drones that are at the target.
+        self.success_timer_buf[at_target_mask] += 1
+        # Reset the timer for any drone that has flown away from the target.
+        self.success_timer_buf[~at_target_mask] = 0
+
+        # 3. Find drones whose timers have exceeded the required hold time.
+        resample_mask = self.success_timer_buf >= self.success_hold_timesteps
+        resample_indices = resample_mask.nonzero(as_tuple=False).reshape((-1,))
+        
+        if len(resample_indices) > 0:
+            # 4. Mark that these envs achieved a success in this episode.
+            self.episode_has_success[resample_indices] = 1.0
+            
+            # 5. Resample new commands for these successful drones.
+            self._resample_commands(resample_indices)
+            
+            # 6. Reset the timers for the successful drones.
+            self.success_timer_buf[resample_indices] = 0
+        # --- END REPLACEMENT BLOCK ---
 
         # check termination and reset
         self.crash_condition = (
@@ -271,6 +309,9 @@ class HoverEnv:
         self.last_actions[:] = self.actions[:]
         self.extras["observations"]["critic"] = self.obs_buf
 
+        # This sends the success data back to the runner.
+        #self.extras["successes_this_iteration"] = self.successes_this_iteration
+
         return self.obs_buf, self.rew_buf, self.reset_buf, self.extras
     
     def pid(self, target, current, error_prev, integral):
@@ -303,23 +344,6 @@ class HoverEnv:
     def reset_idx(self, envs_idx):
         if len(envs_idx) == 0:
             return
-
-        # --- START CORRECT DIAGNOSTIC BLOCK ---
-        # Check for NaNs in the state tensors of the environments that are about to be reset.
-        if torch.isnan(self.base_pos[envs_idx]).any() or \
-           torch.isnan(self.base_quat[envs_idx]).any() or \
-           torch.isnan(self.base_lin_vel[envs_idx]).any() or \
-           torch.isnan(self.base_ang_vel[envs_idx]).any():
-            print("\n" + "="*80)
-            print("!!! DIAGNOSTIC: NaNs DETECTED in drone state BEFORE reset!")
-            print(f"    Affected env_ids: {envs_idx.tolist()}")
-            print(f"    NaNs in positions: {torch.isnan(self.base_pos[envs_idx]).any()}")
-            print(f"    NaNs in rotations: {torch.isnan(self.base_quat[envs_idx]).any()}")
-            print(f"    NaNs in linear velocities: {torch.isnan(self.base_lin_vel[envs_idx]).any()}")
-            print(f"    NaNs in angular velocities: {torch.isnan(self.base_ang_vel[envs_idx]).any()}")
-            print("="*80 + "\n")
-        # --- END CORRECT DIAGNOSTIC BLOCK ---
-        
         
         # reset base
         self.base_pos[envs_idx] = self.base_init_pos
@@ -342,6 +366,10 @@ class HoverEnv:
         self.error_prev[envs_idx] = 0.0
         self.integral[envs_idx] = 0.0
 
+        #MODIFICATION 
+        #Reset the success timer for drones that are resetting.
+        self.success_timer_buf[envs_idx] = 0
+
         # fill extras
         self.extras["episode"] = {}
         for key in self.episode_sums.keys():
@@ -349,6 +377,14 @@ class HoverEnv:
                 torch.mean(self.episode_sums[key][envs_idx]).item() / self.env_cfg["episode_length_s"]
             )
             self.episode_sums[key][envs_idx] = 0.0
+
+        # THIS IS THE NEW METRIC
+        # Log the success status of the episodes that just ended.
+        # The runner will average this and display it as "ep_success_rate".
+        self.extras["episode"]["ep_success_rate"] = torch.mean(self.episode_has_success[envs_idx])
+        # Reset the success tracker for the next episode.
+        self.episode_has_success[envs_idx] = 0.0
+        # --- END MODIFIED BLOCK ---
 
         self._resample_commands(envs_idx)
 
@@ -381,8 +417,12 @@ class HoverEnv:
         crash_rew[self.crash_condition] = 1
         return crash_rew
     
+    def _reward_go_near_target(self):
+        distance_to_target = torch.norm(self.rel_pos, dim=1)
+        near_rew = torch.exp(self.reward_cfg["target_lambda"] * distance_to_target)
+        return near_rew
+    
     def _reward_stay_on_target(self):
         distance_to_target = torch.norm(self.rel_pos, dim=1)
-        #stay_rew = torch.where(distance_to_target < self.env_cfg["at_target_threshold"], 1.0, 0.0)
-        stay_rew = torch.exp(self.reward_cfg["target_lambda"] * distance_to_target)
+        stay_rew = torch.where(distance_to_target < self.env_cfg["at_target_threshold"], 1.0, 0.0)
         return stay_rew

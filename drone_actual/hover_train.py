@@ -31,7 +31,7 @@ def get_train_cfg(exp_name, max_iterations):
             "entropy_coef": 0.004,
             "gamma": 0.99,
             "lam": 0.95,
-            "learning_rate": 0.0001,
+            "learning_rate": 0.0005,
             "max_grad_norm": 1.0,
             "num_learning_epochs": 6,
             "num_mini_batches": 64,
@@ -60,7 +60,7 @@ def get_train_cfg(exp_name, max_iterations):
         },
         "runner_class_name": "OnPolicyRunner",
         "num_steps_per_env": 400,
-        "save_interval": 100,
+        "save_interval": 50,
         "empirical_normalization": True,
         "seed": 1,
     }
@@ -90,6 +90,8 @@ def get_cfgs():
         "visualize_target": False,
         "visualize_camera": False,
         "max_visualize_FPS": 60,
+        #success timer
+        "success_hold_timesteps": 100, #number of timesteps to hold the drone at the target position for a successful episode
     }
     obs_cfg = {
         "num_obs": 17,
@@ -101,20 +103,21 @@ def get_cfgs():
     }
     reward_cfg = {
         "yaw_lambda": -10.0,
-        "target_lambda": -0.8,
+        "target_lambda": -6,
         "reward_scales": {
             "target": 10.0,
          #  "smooth": -1e-4,
          #   "yaw": 0.01,
          #   "angular": -2e-4,
             "crash": -10.0,
-            "stay_on_target": 2.0,
+            "go_near_target": 2.0,
+            "stay_on_target": 20.0,
         },
     }
     command_cfg = {
         "num_commands": 3,
-        "pos_x_range": [1, 4],
-        "pos_y_range": [1, 4],
+        "pos_x_range": [-4, 4],
+        "pos_y_range": [-4, 4],
         "pos_z_range": [1.0, 3.0],
     }
 
@@ -140,7 +143,7 @@ def main():
     os.makedirs(log_dir, exist_ok=True)
 
     if args.vis:
-        env_cfg["visualize_target"] = True
+        env_cfg["visualize_target"] = False
 
     pickle.dump(
         [env_cfg, obs_cfg, reward_cfg, command_cfg, train_cfg],
