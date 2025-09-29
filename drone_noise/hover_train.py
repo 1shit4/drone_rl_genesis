@@ -31,7 +31,7 @@ def get_train_cfg(exp_name, max_iterations):
             "entropy_coef": 0.004,
             "gamma": 0.99,
             "lam": 0.95,
-            "learning_rate": 0.0003,
+            "learning_rate": 0.0001,
             "max_grad_norm": 1.0,
             "num_learning_epochs": 6,
             "num_mini_batches": 64,
@@ -60,7 +60,7 @@ def get_train_cfg(exp_name, max_iterations):
         },
         "runner_class_name": "OnPolicyRunner",
         "num_steps_per_env": 400,
-        "save_interval": 100,
+        "save_interval": 50,
         "empirical_normalization": True,
         "seed": 1,
     }
@@ -90,20 +90,20 @@ def get_cfgs():
         "visualize_target": False,
         "visualize_camera": False,
         "max_visualize_FPS": 60,
+        #success timer
+        "success_hold_timesteps": 30, #number of timesteps to hold the drone at the target position for a successful episode
         #domain randomization
         "domain randomization": {
              "enabled": True,
-             "mass_scale": [0.9, 1.1],      # Randomly scale mass by 80% to 120%
-             "actuator_scale": [0.95, 1.05],
-             "action_smoothing_scale": [0.8, 1.0], # Randomly scale action smoothing (inertia) by 90% to 100%
-        #success timer
-        "success_hold_timesteps": 100, #number of timesteps to hold the drone at the target position for a successful episode
+             "mass_scale": [0.95, 1.05],      # Randomly scale mass
+             "actuator_scale": [1.0, 1.0],
+             "action_smoothing_scale": [1.0, 1.0], # Randomly scale action smoothing (inertia) 
         }
     }
     obs_cfg = {
         "num_obs": 17,
         "add_noise": True,
-        "noise_level": 0.02,
+        "noise_level": 0.01,
         "obs_scales": {
             "rel_pos": 1 / 3.0,
             "lin_vel": 1 / 8.0,
@@ -115,12 +115,12 @@ def get_cfgs():
         "target_lambda": -6,
         "reward_scales": {
             "target": 10.0,
-         #  "smooth": -1e-4,
+            "smooth": -1e-4,
          #   "yaw": 0.01,
          #   "angular": -2e-4,
             "crash": -10.0,
             "go_near_target": 2.0,
-            "stay_on_target": 20.0,
+            "stay_on_target": 10.0,
         },
     }
     command_cfg = {
@@ -139,6 +139,8 @@ def main():
     parser.add_argument("-v", "--vis", action="store_true", default=False)
     parser.add_argument("-B", "--num_envs", type=int, default=8192)
     parser.add_argument("--max_iterations", type=int, default=301)
+    parser.add_argument("--resume", action="store_true", default=False, help="Resume training from a checkpoint")
+    parser.add_argument("--load_model", type=str, default=None, help="Path to the model checkpoint to load")
     args = parser.parse_args()
 
     gs.init(logging_level="warning")
@@ -147,17 +149,22 @@ def main():
     env_cfg, obs_cfg, reward_cfg, command_cfg = get_cfgs()
     train_cfg = get_train_cfg(args.exp_name, args.max_iterations)
 
-    if os.path.exists(log_dir):
-        shutil.rmtree(log_dir)
-    os.makedirs(log_dir, exist_ok=True)
+    if not args.resume and os.path.exists(log_dir):
+        if os.path.exists(log_dir):
+            shutil.rmtree(log_dir)
+        os.makedirs(log_dir, exist_ok=True)
 
     if args.vis:
         env_cfg["visualize_target"] = True
 
-    pickle.dump(
-        [env_cfg, obs_cfg, reward_cfg, command_cfg, train_cfg],
-        open(f"{log_dir}/cfgs.pkl", "wb"),
-    )
+    if not args.resume:
+        pickle.dump(
+            [env_cfg, obs_cfg, reward_cfg, command_cfg, train_cfg],
+            open(f"{log_dir}/cfgs.pkl", "wb"),
+        )
+    if args.resume:
+        #env_cfg, obs_cfg, reward_cfg, command_cfg, _ = pickle.load(open(f"{log_dir}/cfgs.pkl", "rb"))
+        train_cfg = get_train_cfg(args.exp_name, args.max_iterations)
 
     env = HoverEnv(
         num_envs=args.num_envs,
@@ -169,7 +176,10 @@ def main():
     )
 
     runner = OnPolicyRunner(env, train_cfg, log_dir, device=gs.device)
-
+    if args.resume:
+            resume_path = args.load_model
+            print(f"Resuming training from checkpoint: {resume_path}")
+            runner.load(resume_path)
     runner.learn(num_learning_iterations=args.max_iterations, init_at_random_ep_len=True)
 
 

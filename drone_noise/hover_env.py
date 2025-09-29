@@ -37,7 +37,7 @@ class HoverEnv:
         self.device = gs.device
 
         self.simulate_action_latency = env_cfg["simulate_action_latency"]
-        self.dt = 0.01  # run in 100hz
+        self.dt = 0.02  # run in 100hz
         self.max_episode_length = math.ceil(env_cfg["episode_length_s"] / self.dt)
 
         self.env_cfg = env_cfg
